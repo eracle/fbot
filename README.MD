@@ -1,6 +1,7 @@
 # Facebook Bot
 Facebook bot with Selenium Webdriver.
 
+### Features:
 - Login
 - Post messages in groups
 - Delete messages in a group
