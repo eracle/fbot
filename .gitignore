@@ -1,2 +1,6 @@
 *.pyc
 *.log
+.cache
+snippets/*
+.idea/*
+tests/conf.py

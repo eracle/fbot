@@ -24,34 +24,32 @@ Ubuntu 14.04 works for me.
 ## Usage:
 #### Post a msg in a group:
     ...
-    from fbconnection import FbConnection
-    sut = FbConnection(email, password)
-    sut.post_to_group(post_msg=msg, group_id=group_id)
+    import fbot
+    (driver, username) = fbot.login(email, password)
+    fbot.post_to_group(driver=driver, post_msg=msg, group_id=group_id)
     ...
 
 
 #### Delete the first owned post in a group:
     ...
-    from fbconnection import FbConnection
-    sut = FbConnection(email, password)
-    sut.delete_first_post_in_group(group_id=group_id)
+    import fbot
+    (driver, username) = fbot.login(email, password)
+    fbot.delete_first_post_in_group(driver=driver, group_id=group_id)
     ...
 
 #### Iterate over the posts of a group:
     ...
-    from fbconnection import FbConnection
-    sut = FbConnection(email, password)
-    sut.iterate_group_posts(group_id=group_id)
+    import fbot
+    (driver, username) = fbot.login(email, password)
+    fbot.iterate_group_posts(driver=driver, group_id=group_id)
     ...
 
 ## Testing
-there are some unittest, they are called test*.py.
+pytest is used.
+In order to run the test you must provide Facebook username and password in the tests/conf.py.
+You can rename and modify the tests/conf_template.py file. Then:
 
-In order to use them rename the file test_conf_template.py in test_conf.py and fill the variables in there.
-Then call the selected test file, for instance:
-    `
-    python test_regression.py
-    `
+    pytest
 
 
 # Todo:
