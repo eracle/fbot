@@ -25,14 +25,28 @@ def test_post_to_group_and_delete_many_posts(driver):
         fbot.delete_first_post_in_group(driver=driver, group_id=group_id, msg_to_remove=post_example)
 
 
-
 def test_iterate_group_posts(driver):
     group_id = "cercocasapisa"
-    try:
-        iterator = fbot.iterate_group_posts(driver=driver, group_id=group_id)
-        for i in iterator:
-            pass
-    except Exception:
-        print("exception!")
-        # import q
-        # q.d()
+
+    n_posts = 0
+    posts_iterator = fbot.iterate_group_posts(driver=driver, group_id=group_id)
+    for post in posts_iterator:
+        n_posts += 1
+        assert post is not None
+        assert post != ''
+        assert post.name is not None
+        assert post.name != ''
+        assert post.date is not None
+        assert post.date != ''
+        assert post.title is not None
+        assert post.title != ''
+        assert post.price is not None
+        assert post.price != ''
+        assert post.location is not None
+        assert post.location != ''
+        assert post.text is not None
+        assert post.text != ''
+        assert post.xpath_element is not None
+        assert post.xpath_element != ''
+
+    assert n_posts > 1

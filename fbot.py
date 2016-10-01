@@ -6,6 +6,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
 
+from itertools import count
+import collections
+
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -208,7 +211,6 @@ def delete_first_post_in_group(driver, user_name, group_id, msg_to_remove=None):
             msg = item_dict["text"]
             item_xpath = item_dict["web_element"]
 
-
             logger.info('Delete first post in a group - Name and Msg: %s,%s' % (name, msg[:min(20, len(msg))]))
 
             # delete only if name and msg matches
@@ -255,89 +257,46 @@ def delete_first_post_in_group(driver, user_name, group_id, msg_to_remove=None):
 def iterate_group_posts(driver, group_id):
     """
     Iterate through all the posts of a group.
-    The returned object iterates over dictionaries.
     :param driver:
     :param group_id:
     :return:
     """
 
+    see_more_placeholder = 'See more'
+
+    post = collections.namedtuple('post', 'name date title price location text xpath_element')
+
     logger.info("Iterate Group\'s Posts - group id: %s" % group_id)
     url = 'https://www.facebook.com/groups/%s/' % group_id
-    driver.refresh()
     driver.get(url)
 
-    something_changed = True
-    iterated_yet = set()
+    def get_single_post(i):
+        post_element = get_by_xpath(driver, '//div[%d][contains(@id,"mall_post_")]' % i)
 
-    logger.info("Iterate Group\'s Posts - load first post")
-    get_by_xpath(driver, "//div/div[@role='article']/div[1]")
+        if see_more_placeholder in post_element.text:
+            get_by_xpath(driver, '//div[%d][contains(@id,"mall_post_")]//*[text()="%s"]' %
+                         (i, see_more_placeholder)).click()
+            post_element = get_by_xpath(driver, '//div[%d][contains(@id,"mall_post_")]' % i)
 
-    logger.info("Iterate Group\'s Posts - retrieve all the post's divs")
-    posts_divs = WebDriverWait(driver, WAIT_TIMEOUT).until(ec.presence_of_all_elements_located(
-        (By.XPATH, "//div/div[@role='article']/div[1]")
-    ))
+        lines = post_element.text.splitlines()
 
-    while something_changed:
-        logger.info("Iterate Group\'s Posts - Executing a page scroll")
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        p = post(name=lines[0], date=lines[1], title=lines[2], price=lines[3], location=lines[4],
+                 text=lines[5], xpath_element=post_element)
 
-        for single_post_div in filter(lambda x: x not in iterated_yet, posts_divs):
+        logger.info("Iterate Group's Posts - Retrieved: %s, %s" % (p.name, p.date))
 
-            name_and_date_div = try_or_none(single_post_div, "./div[3]")
+        return p
 
-            name_div = try_or_none(name_and_date_div, "./div/div/div[2]/div/div/div[2]/h5/span/span/a")
+    def scroll_if_timeout(function, param):
+        n_retry = 0
+        try:
+            return function(param)
+        except (TimeoutException, NoSuchElementException):
+            logger.info("Iterate Group's Posts - Executing a page scroll")
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            n_retry += 1
+            if n_retry > MAX_N_RETRY:
+                raise
 
-            date_div = try_or_none(name_and_date_div, "./div/div/div[2]/div/div/div[2]/div/span/span/a/abbr/span")
-            #
-            #                text_div = try_or_none(single_post_div, "./div[4]")
-            #
-            #                img_div = try_or_none(single_post_div, "./div[5]/div/div/div/a/div/img")
-
-            # comments_div = try_or_none(item, "./div/div[2]/div[2]")
-
-            ignore_items = [u'RECENT ACTIVITY', u'OLDER']
-            ignore = False
-            if single_post_div.text.split('\n')[0] in ignore_items:
-                ignore = True
-
-            if single_post_div.text.split('\n')[0].endswith(u'created the group.'):
-                ignore = True
-
-            # import q
-            # q.d()
-
-            if not ignore:
-                ret = {
-                    "name": name_div.text,
-                    "date": date_div.text,
-                    #                        "text": text_div.text,
-                    "web_element": single_post_div
-                }
-                logger.info("Iterate Group\'s Posts - Retrieved: %s,%s" % (ret["name"], ret["date"]))
-                iterated_yet.add(single_post_div)
-                yield ret
-
-        logger.info("Iterate Group\'s Posts - waiting for the first posts div (again)")
-        get_by_xpath(driver, "//div/div[@role='article']/div[1]")
-
-        old_posts = posts_divs
-
-        logger.info("Iterate Group\'s Posts - retrieve all the posts_divs (again)")
-        posts_divs = WebDriverWait(driver, WAIT_TIMEOUT).until(ec.presence_of_all_elements_located(
-            (By.XPATH, "//div/div[@role='article']/div[1]")
-        ))
-
-        if len(old_posts) == len(posts_divs):
-            something_changed = False
-
-
-def try_or_none(item, xpath):
-    logging.debug("Try Or None, (item,xpath): %s,%s" % (item, xpath))
-
-    try:
-        r = item.find_element(By.XPATH, xpath)
-        return r
-    except (TimeoutException, NoSuchElementException):
-        logging.warning("Returned None!")
-        return None
-
+    for i in count(start=2):
+        yield scroll_if_timeout(get_single_post, i)

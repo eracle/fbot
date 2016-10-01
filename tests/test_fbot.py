@@ -8,7 +8,7 @@ import fbot
 def driver():
     (driver, username) = fbot.login(email, password)
     assert username == account_user_name
-    assert driver.title == 'Facebook'
+    assert 'Facebook' in driver.title
     yield driver
     driver.close()
 
