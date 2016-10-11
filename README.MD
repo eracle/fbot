@@ -11,7 +11,7 @@ It can be used also for crawling/scraping of all the posts in a group.
 
 ## Installation
 Ubuntu 14.04 works for me.
-- Install Virtual Environment - Python 2.7
+- Install Virtual Environment - Python 3.4.3
 - Install Requirements:
     `    pip install -r requirements.txt    `
 

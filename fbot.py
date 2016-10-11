@@ -15,7 +15,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.DEBUG)
 
-
 """
 number of seconds used to wait the web page's loading.
 """
@@ -25,6 +24,11 @@ WAIT_TIMEOUT = 10
 Maximum number of times a TimeoutException or StaleElementReferenceException can happen before quitting the program.
 """
 MAX_N_RETRY = 5
+
+"""
+Definition of the class for a post (named-tuple).
+"""
+Post = collections.namedtuple('Post', 'name date title price location text xpath_element')
 
 
 def get_by_xpath(driver, xpath):
@@ -67,7 +71,7 @@ def login(email, password):
     logger.info('Init Firefox Browser')
     profile = webdriver.FirefoxProfile()
     profile.set_preference('dom.disable_beforeunload', True)
-    driver =  webdriver.Firefox(profile)
+    driver = webdriver.Firefox(profile)
 
     driver.get('https://www.facebook.com')
 
@@ -81,7 +85,7 @@ def login(email, password):
     get_by_xpath(driver, '//input[@type="submit"]').click()
 
     logger.info('Log in - get the user name')
-    user_name = get_by_xpath(driver, "/html/body/div[1]/div[2]/div[1]/div/div[2]/div[1]/div[1]/ul/li[1]/div/div").text
+    user_name = get_by_xpath(driver, '//a[@class="fbxWelcomeBoxName"]').text
 
     logger.info('Log in - Saving the username, which is: %s' % user_name)
     return driver, user_name
@@ -114,13 +118,11 @@ def post_to_sale_group(driver, group_id, sell_msg, item_description, price=0, lo
         logger.info('Posting to Sale Group  - Opening the what to sell form')
         get_by_xpath(driver, '//*[@placeholder=\'%s\']' % first_what_placeholder).click()
 
-
         logger.info('Posting to Sale Group  - Selecting the what to sell form')
         get_by_xpath(driver, '//*[@placeholder=\'%s\']' % second_what_placeholder).send_keys(sell_msg)
 
         logger.info('Posting to Sale Group  - Selecting the price form')
         get_by_xpath(driver, '//*[@placeholder=\'%s\']' % price_placeholder).send_keys(price)
-
 
         logger.info('Posting to Sale Group  - Selecting the location form')
         location_xpath = get_by_xpath(driver, '//input[@placeholder=\'%s\']' % location_placeholder)
@@ -133,13 +135,16 @@ def post_to_sale_group(driver, group_id, sell_msg, item_description, price=0, lo
             location_xpath.send_keys(Keys.ENTER)
 
         logger.info('Posting to Sale Group  - Selecting the description form')
-        get_by_xpath(driver,"//div[2]/div[3]/div/div[1]/div[1]/div/div[2]/div/div[1]/div[4]/div[1]/div/div/div[2]/div").send_keys(item_description)
+        get_by_xpath(driver,
+                     "//div[2]/div[3]/div/div[1]/div[1]/div/div[2]/div/div[1]/div[4]/div[1]/div/div/div[2]/div").send_keys(
+            item_description)
 
         logger.info('Posting to Sale Group  - Pressing the Post Button!')
         get_by_xpath(driver, '//span/button[@type=\'submit\' and text()=\'Post\']').send_keys(Keys.ENTER)
 
         logger.info('Posting to Sale Group  - Waiting for the publishing of the post')
-        WebDriverWait(driver, WAIT_TIMEOUT).until(ec.invisibility_of_element_located((By.XPATH, '//span/button[@type=\'submit\' and text()=\'Post\']')))
+        WebDriverWait(driver, WAIT_TIMEOUT).until(
+            ec.invisibility_of_element_located((By.XPATH, '//span/button[@type=\'submit\' and text()=\'Post\']')))
 
         # seems everything gone well
         return
@@ -165,7 +170,6 @@ def post_to_group(driver, group_id, post_msg):
     driver.get(url)
 
     def _post_to_group():
-
         logger.info('Posting to Normal Group - Selecting the write form')
         write_xpath = get_by_xpath(driver, '//*[@placeholder=\'%s\']' % write_post_placeholder)
 
@@ -175,16 +179,14 @@ def post_to_group(driver, group_id, post_msg):
         # write_xpath.click()
         write_xpath.send_keys(post_msg)
 
-
         logger.info('Posting to Normal Group - Pressing the Post Button!')
 
         post_button_xpath = "//div/div[2]/button[@type='submit' and @value='1']"
         get_by_xpath(driver, post_button_xpath).send_keys(Keys.ENTER)
 
-
         logger.info('Posting to Normal Group - Waiting for the publishing of the post')
         WebDriverWait(driver, WAIT_TIMEOUT).until(ec.invisibility_of_element_located(
-                (By.XPATH, post_button_xpath)))
+            (By.XPATH, post_button_xpath)))
 
         return
 
@@ -197,23 +199,23 @@ def delete_first_post_in_group(driver, user_name, group_id, msg_to_remove=None):
     :param driver:  The Selenium web driver to use.
     :param user_name:   The user name of the account.
     :param group_id: The id of the group where must be deleted the post.
-    :param msg_to_remove: The msg to remove, if not give the first post of the user_name will be deleted
+    :param msg_to_remove: The msg to remove, if not given the first post of the user_name will be deleted.
     :return:
     """
 
     logger.info('Delete first post in a group - group id: %s' % group_id)
 
     def _delete_first_post_in_group():
-        for item_dict in iterate_group_posts(driver=driver, group_id=group_id):
+        for post in iterate_group_posts(driver=driver, group_id=group_id):
 
             logger.info('Delete first post in a group - Extracting name and message for every post')
-            name = item_dict["name"]
-            msg = item_dict["text"]
-            item_xpath = item_dict["web_element"]
+            name = post.name
+            msg = post.text
+            item_xpath = post.xpath_element
 
             logger.info('Delete first post in a group - Name and Msg: %s,%s' % (name, msg[:min(20, len(msg))]))
 
-            # delete only if name and msg matches
+            # delete only if name and msg matches with the account username
             to_delete = False
             if msg_to_remove is None and user_name == name:
                 to_delete = True
@@ -249,8 +251,9 @@ def delete_first_post_in_group(driver, user_name, group_id, msg_to_remove=None):
                 WebDriverWait(driver, WAIT_TIMEOUT).until(ec.invisibility_of_element_located((By.XPATH, delete_xpath)))
 
                 # seems everything gone well
-                logger.info('Deleted')
+                logger.info('Delete first post in a group - Post Deleted')
                 return
+
     retry_if_timeout(_delete_first_post_in_group)
 
 
@@ -262,41 +265,108 @@ def iterate_group_posts(driver, group_id):
     :return:
     """
 
+    created_group_placeholder = 'created the group.'
     see_more_placeholder = 'See more'
 
-    post = collections.namedtuple('post', 'name date title price location text xpath_element')
-
-    logger.info("Iterate Group\'s Posts - group id: %s" % group_id)
+    logger.info("Iterate Group Posts - group id: %s" % group_id)
     url = 'https://www.facebook.com/groups/%s/' % group_id
     driver.get(url)
 
-    def get_single_post(i):
-        post_element = get_by_xpath(driver, '//div[%d][contains(@id,"mall_post_")]' % i)
-
-        if see_more_placeholder in post_element.text:
-            get_by_xpath(driver, '//div[%d][contains(@id,"mall_post_")]//*[text()="%s"]' %
-                         (i, see_more_placeholder)).click()
-            post_element = get_by_xpath(driver, '//div[%d][contains(@id,"mall_post_")]' % i)
-
-        lines = post_element.text.splitlines()
-
-        p = post(name=lines[0], date=lines[1], title=lines[2], price=lines[3], location=lines[4],
-                 text=lines[5], xpath_element=post_element)
-
-        logger.info("Iterate Group's Posts - Retrieved: %s, %s" % (p.name, p.date))
-
-        return p
-
-    def scroll_if_timeout(function, param):
-        n_retry = 0
+    yet_visited_mall_posts_set = set([])
+    visited_all = False
+    while not visited_all:
+        i = 1 + len(yet_visited_mall_posts_set)
         try:
-            return function(param)
-        except (TimeoutException, NoSuchElementException):
-            logger.info("Iterate Group's Posts - Executing a page scroll")
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            n_retry += 1
-            if n_retry > MAX_N_RETRY:
-                raise
+            get_by_xpath(driver, '//div[contains(@id,"mall_post_")][%s]' % i)
+        except TimeoutException:
+            logger.info("Iterate Group Posts - exception received, iteration will end")
+            visited_all = True
+            continue
 
-    for i in count(start=2):
-        yield scroll_if_timeout(get_single_post, i)
+        posts = [(elem.get_attribute('id'), elem) for elem in
+                 driver.find_elements_by_xpath('//div[contains(@id,"mall_post_")]')]
+
+        for (post_id, post_element) in posts:
+            if post_id not in yet_visited_mall_posts_set:
+                see_more(driver, post_element, see_more_placeholder)
+                p = extract_post(post_element)
+                if not p.text.endswith(created_group_placeholder):
+                    logger.info("Iterate Group Posts - Retrieved: %s, %s, %s" % (p.name, p.date, p.text[:30]))
+                    yield p
+                else:
+                    logger.info("Iterate Group Posts - last post retrieved, will be ignored")
+                    visited_all = True
+
+        n_visited = len(yet_visited_mall_posts_set)
+        yet_visited_mall_posts_set |= set([post_id for (post_id, post_el) in posts])
+
+        # logger.info("Iterate Group Posts - Executing page scroll: %s" % n_retry)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+        if n_visited == len(yet_visited_mall_posts_set):
+            visited_all = True
+            continue
+
+
+def scroll_if_timeout(driver, xpath, web_element=None):
+    for n_retry in range(MAX_N_RETRY):
+        try:
+            post_web_element = get_by_xpath(web_element if web_element else driver, xpath)
+            return post_web_element
+        except (TimeoutException, StaleElementReferenceException):
+            logger.info("Iterate Group Posts - Executing page scroll: %s" % n_retry)
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    return None
+
+
+def see_more(driver, post_element, see_more_placeholder):
+    if see_more_placeholder in post_element.text:
+        logger.info("Iterate Group Posts - Executing a see more click")
+        see_more_element = post_element.find_element_by_xpath('.//*[text()="%s"]' % see_more_placeholder)
+        driver.execute_script(
+            "var evt = document.createEvent('MouseEvents');" +
+            "evt.initMouseEvent('click',true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0,null);" +
+            "arguments[0].dispatchEvent(evt);",
+            see_more_element)
+
+def extract_post(post_element):
+    def _find_by_xpath_no_wait(driver, xpath):
+        try:
+            return driver.find_element_by_xpath(xpath).text
+        except NoSuchElementException:
+            return ''
+    def _remove_ignore(a,v):
+        try:
+            a.remove(v)
+        except ValueError:
+            pass
+
+    name = _find_by_xpath_no_wait(post_element, './/div/div[2]/div[1]/div[3]/div/div/div[2]/div/div/div[2]/h5/span/span/a')
+
+    date = _find_by_xpath_no_wait(post_element, './/*[@class="timestampContent"]')
+
+    title = _find_by_xpath_no_wait(post_element, './/div/div[2]/div[1]/div[5]/div/div[1]/div/div[1]/div[1]/span[2]')
+
+    price = _find_by_xpath_no_wait(post_element, './/div/div[2]/div[1]/div[5]/div/div[1]/div/div[1]/div[2]/div[1]')
+
+    location = _find_by_xpath_no_wait(post_element,
+                                      './/div/div[2]/div[1]/div[5]/div/div[1]/div/div[1]/div[2]/div[2]')
+
+    lines = post_element.text.splitlines()
+    _remove_ignore(lines, name)
+    _remove_ignore(lines, date)
+    _remove_ignore(lines, title)
+    _remove_ignore(lines, price)
+    _remove_ignore(lines, location)
+    content = lines[0]
+    #content = _find_by_xpath_no_wait(post_element, './/div/div/div[contains(@class,"userContent")]/div/p')
+
+
+
+    return Post(name=name,
+                date=date,
+                title=title,
+                price=price,
+                location=location,
+                text=content,
+                xpath_element=post_element)
